@@ -302,8 +302,8 @@
   // ---------------------------------------------------------------- camera / light
   const camera = new THREE.PerspectiveCamera(LIVE ? 42 : 38, W / H, 0.1, 700);
   if (LIVE) {
-    camera.position.set(6.35, 3.55, 17.1);
-    camera.lookAt(7.35, 1.42, 10.6);
+    camera.position.set(6.15, 2.85, 16.2);
+    camera.lookAt(7.45, 1.08, 10.35);
   } else {
     camera.position.set(5.15, 1.72, 15.2);
     camera.lookAt(-1.15, 2.1, -16.5);
@@ -1450,33 +1450,65 @@
     return g;
   }
 
-  function nametagSprite(name) {
+  // Signed mid-pair lookdev family. Five live bots wear these as cream chest plates.
+  const STATUS_WORDS = ["Build", "Design", "Trade", "Render", "Plan"];
+  const STATUS_BY_SEAT = {
+    builder: STATUS_WORDS[0],
+    "design-director": STATUS_WORDS[1],
+    trader: STATUS_WORDS[2],
+    "video-editor": STATUS_WORDS[3],
+    intel: STATUS_WORDS[4],
+  };
+
+  function creamLabelTexture(text, size) {
     const c = document.createElement("canvas");
     c.width = 640;
-    c.height = 112;
+    c.height = 192;
     const ctx = c.getContext("2d");
-    ctx.clearRect(0, 0, c.width, c.height);
-    ctx.font = "700 48px ui-sans-serif, system-ui, sans-serif";
-    const w = Math.min(600, Math.ceil(ctx.measureText(name).width) + 48);
-    const x = (c.width - w) / 2;
-    ctx.fillStyle = "rgba(28, 20, 16, 0.88)";
-    ctx.beginPath();
-    ctx.roundRect(x, 16, w, 72, 18);
-    ctx.fill();
-    ctx.strokeStyle = "#f4ead8";
-    ctx.lineWidth = 4;
-    ctx.stroke();
     ctx.fillStyle = "#f4ead8";
+    ctx.fillRect(0, 0, c.width, c.height);
+    ctx.strokeStyle = "#3a2a20";
+    ctx.lineWidth = 12;
+    ctx.strokeRect(8, 8, c.width - 16, c.height - 16);
+    ctx.fillStyle = "#2c2118";
+    ctx.font = "700 " + size + "px ui-sans-serif, system-ui, sans-serif";
     ctx.textAlign = "center";
     ctx.textBaseline = "middle";
-    ctx.fillText(name, c.width / 2, 52);
+    let draw = text;
+    if (ctx.measureText(draw).width > 580) {
+      ctx.font = "700 " + Math.max(28, size - 14) + "px ui-sans-serif, system-ui, sans-serif";
+    }
+    ctx.fillText(draw, c.width / 2, c.height / 2 + 4);
     const tex = new THREE.CanvasTexture(c);
     tex.colorSpace = THREE.SRGBColorSpace;
-    const spr = new THREE.Sprite(new THREE.SpriteMaterial({ map: tex, transparent: true, depthTest: false, depthWrite: false }));
-    spr.scale.set(3.2, 0.52, 1);
-    spr.position.set(0, 2.35, 0);
-    spr.userData.nametag = name;
-    return spr;
+    tex.anisotropy = 4;
+    return tex;
+  }
+
+  function creamChestPlate(text, kind) {
+    const status = kind === "status";
+    const tex = creamLabelTexture(text, status ? 78 : 44);
+    const w = status ? 0.40 : 0.34;
+    const h = status ? 0.125 : 0.085;
+    const g = new THREE.Group();
+    const plate = new THREE.Mesh(
+      new THREE.BoxGeometry(w + 0.02, h + 0.02, 0.02),
+      new THREE.MeshStandardMaterial({ color: 0xf4ead8, roughness: 0.52, metalness: 0.04 })
+    );
+    const face = new THREE.Mesh(
+      new THREE.PlaneGeometry(w, h),
+      new THREE.MeshBasicMaterial({ map: tex, toneMapped: false, depthTest: true, depthWrite: true })
+    );
+    face.position.z = 0.012;
+    g.add(plate);
+    g.add(face);
+    // Status sits on upper chest; seat name on the belt so they do not stack as a cloud.
+    g.position.set(0, status ? 1.12 : 0.78, 0.16);
+    g.userData.liveTag = true;
+    g.userData.tagKind = kind;
+    g.userData.tagText = text;
+    g.userData.tagPriority = status ? 2 : 1;
+    return g;
   }
 
   function bots() {
@@ -1602,20 +1634,22 @@
   }
 
   async function liveSeats() {
+    // Phone camera looks down the right sidewalk at ~z=10. Status-tagged
+    // seats plus viral (true-red) stay in that wedge; others start farther back.
     const spots = [
-      { x: 7.15, z: 12.6, rot: Math.PI - 0.08, pose: "walk", lane: "right" },
-      { x: 8.55, z: 11.5, rot: Math.PI + 0.06, pose: "walk", lane: "right" },
-      { x: 6.05, z: 10.7, rot: Math.PI - 0.2, pose: "walk", lane: "right" },
-      { x: 9.4, z: 6.2, rot: -0.4, pose: "look", lane: "idle" },
-      { x: 8.2, z: 4.1, rot: Math.PI - 0.05, pose: "walk", lane: "right" },
-      { x: 8.9, z: 1.4, rot: Math.PI + 0.1, pose: "walk", lane: "right" },
-      { x: -8.4, z: 8.2, rot: 0.28, pose: "walk", lane: "left" },
-      { x: -9.2, z: 5.0, rot: 0.15, pose: "walk", lane: "left" },
-      { x: 6.6, z: 0.4, rot: Math.PI - 0.25, pose: "walk", lane: "right" },
-      { x: -8.7, z: 2.2, rot: 2.8, pose: "stand", lane: "idle" },
-      { x: 9.1, z: -1.8, rot: Math.PI, pose: "walk", lane: "right" },
-      { x: -1.1, z: 7.6, rot: 1.48, pose: "walk", lane: "cross" },
-      { x: 8.4, z: 7.4, rot: 0.2, pose: "wave", lane: "idle" },
+      { x: 5.95, z: 11.85, rot: Math.PI - 0.06, pose: "walk", lane: "right" }, // Psilocybot
+      { x: 7.05, z: 12.55, rot: Math.PI - 0.04, pose: "stand", lane: "idle" }, // builder / Build
+      { x: 8.22, z: 11.40, rot: Math.PI + 0.05, pose: "stand", lane: "idle" }, // design-director / Design
+      { x: 9.55, z: 6.35, rot: -0.35, pose: "look", lane: "idle" }, // 3d-artist
+      { x: 8.35, z: 3.55, rot: Math.PI - 0.05, pose: "walk", lane: "right" }, // motion-designer
+      { x: 8.95, z: 1.15, rot: Math.PI + 0.08, pose: "walk", lane: "right" }, // creative-director
+      { x: -8.4, z: 8.2, rot: 0.28, pose: "walk", lane: "left" }, // content-crafter
+      { x: -9.2, z: 5.0, rot: 0.15, pose: "walk", lane: "left" }, // community-manager
+      { x: 7.42, z: 8.62, rot: Math.PI + 0.02, pose: "stand", lane: "idle" }, // intel / Plan
+      { x: 9.28, z: 10.85, rot: Math.PI + 0.12, pose: "walk", lane: "right" }, // viral-analyst (true-red)
+      { x: 6.78, z: 10.38, rot: Math.PI - 0.1, pose: "stand", lane: "idle" }, // trader / Trade
+      { x: 8.48, z: 9.48, rot: Math.PI + 0.04, pose: "stand", lane: "idle" }, // video-editor / Render (indigo)
+      { x: 5.55, z: 9.15, rot: 0.18, pose: "wave", lane: "idle" }, // audio-engineer
     ];
     const loaded = [];
     for (let i = 0; i < SEAT_ROSTER.length; i++) {
@@ -1640,7 +1674,9 @@
       g.add(model);
       g.position.set(spot.x, 0, spot.z);
       g.rotation.y = spot.rot;
-      g.add(nametagSprite(seat.name));
+      g.add(creamChestPlate(seat.name, "name"));
+      const status = STATUS_BY_SEAT[slug];
+      if (status) g.add(creamChestPlate(status, "status"));
       g.userData.seat = seat;
       g.userData.lane = spot.lane;
       g.userData.pose = spot.pose;
@@ -2037,6 +2073,53 @@
     overlayScene.children[0].material.uniforms.res.value.set(w, h);
   }
 
+  const _tagNdc = new THREE.Vector3();
+  function cullLiveTags() {
+    const tagged = [];
+    for (const actor of liveActors) {
+      actor.traverse((o) => {
+        if (!o.userData.liveTag) return;
+        o.visible = true;
+        o.getWorldPosition(_tagNdc);
+        _tagNdc.project(camera);
+        tagged.push({
+          o,
+          x: _tagNdc.x,
+          y: _tagNdc.y,
+          z: _tagNdc.z,
+          prio: o.userData.tagPriority || 1,
+        });
+      });
+    }
+    tagged.sort((a, b) => a.z - b.z || b.prio - a.prio);
+    const kept = [];
+    for (const t of tagged) {
+      if (t.z < -1 || t.z > 1 || t.x < -1.15 || t.x > 1.15 || t.y < -1.2 || t.y > 1.15) {
+        t.o.visible = false;
+        continue;
+      }
+      let hide = false;
+      for (const k of kept) {
+        const dx = t.x - k.x;
+        const dy = t.y - k.y;
+        if (dx * dx + dy * dy < 0.028) {
+          if (t.prio < k.prio) {
+            t.o.visible = false;
+            hide = true;
+            break;
+          }
+          if (t.prio === k.prio && t.z > k.z) {
+            t.o.visible = false;
+            hide = true;
+            break;
+          }
+          k.o.visible = false;
+        }
+      }
+      if (!hide) kept.push(t);
+    }
+  }
+
   function tickLive(now) {
     const t = now * 0.001;
     const dt = lastLiveT ? Math.min(0.05, t - lastLiveT) : 0.016;
@@ -2062,6 +2145,7 @@
         g.rotation.y += Math.sin(t * 1.1 + phase) * 0.002;
       }
     }
+    cullLiveTags();
     renderFrame();
     window.__STREET_LIVE_T__ = t;
     requestAnimationFrame(tickLive);
