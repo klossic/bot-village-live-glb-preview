@@ -1,5 +1,20 @@
 {
   "$schema": "https://openapi.vercel.sh/vercel.json",
   "cleanUrls": false,
-  "trailingSlash": true
+  "trailingSlash": true,
+  "framework": null,
+  "rewrites": [
+    {
+      "source": "/street/vendor/three.min.js",
+      "destination": "https://unpkg.com/three@0.152.2/build/three.min.js"
+    },
+    {
+      "source": "/avatars/:path*",
+      "destination": "https://raw.githubusercontent.com/klossic/bot-village-live-glb-preview/master/avatars/:path*"
+    },
+    {
+      "source": "/kits/:path*",
+      "destination": "https://raw.githubusercontent.com/klossic/bot-village-live-glb-preview/master/kits/:path*"
+    }
+  ]
 }
